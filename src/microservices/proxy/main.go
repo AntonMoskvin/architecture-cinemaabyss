@@ -1,31 +1,50 @@
-// src/microservices/proxy/main.go
+// microservices/proxy/main.go
 package main
 
 import (
     "fmt"
-    "io"
     "log"
     "math/rand"
     "net/http"
     "net/http/httputil"
     "net/url"
     "os"
+    "encoding/json"  // Добавлено: для json.NewEncoder и json.Marshal
 )
 
 var (
-    monolithURL   *url.URL
-    moviesServiceURL *url.URL
+    monolithTarget   *url.URL
+    moviesServiceTarget *url.URL
     migrationPercent int
 )
 
 func init() {
-    monolithAddr := getEnv("MONOLITH_URL", "http://monolith:8000")
-    moviesAddr := getEnv("MOVIES_SERVICE_URL", "http://movies:8001")
-    percent := getEnv("MOVIES_MIGRATION_PERCENT", "0")
+    var err error
+    // Получаем URL из переменных окружения
+    monolithAddr := getEnv("MONOLITH_URL", "http://monolith:8080")
+    moviesAddr := getEnv("MOVIES_SERVICE_URL", "http://movies-service:8001")
+    percentStr := getEnv("MOVIES_MIGRATION_PERCENT", "0")
 
-    monolithURL = parseURL(monolithAddr)
-    moviesServiceURL = parseURL(moviesAddr)
-    fmt.Sscanf(percent, "%d", &migrationPercent)
+    monolithTarget, err = url.Parse(monolithAddr)
+    if err != nil {
+        log.Fatal("Invalid MONOLITH_URL:", err)
+    }
+
+    moviesServiceTarget, err = url.Parse(moviesAddr)
+    if err != nil {
+        log.Fatal("Invalid MOVIES_SERVICE_URL:", err)
+    }
+
+    _, err = fmt.Sscanf(percentStr, "%d", &migrationPercent)
+    if err != nil {
+        migrationPercent = 0
+    }
+    if migrationPercent < 0 {
+        migrationPercent = 0
+    }
+    if migrationPercent > 100 {
+        migrationPercent = 100
+    }
 }
 
 func getEnv(key, fallback string) string {
@@ -35,47 +54,41 @@ func getEnv(key, fallback string) string {
     return fallback
 }
 
-func parseURL(rawURL string) *url.URL {
-    u, err := url.Parse(rawURL)
-    if err != nil {
-        log.Fatal("Invalid URL:", rawURL, err)
-    }
-    return u
-}
-
 func main() {
     port := getEnv("PORT", "8000")
 
-    http.HandleFunc("/api/movies", moviesHandler)
-    // Все остальные /api/* идут в монолит
-    http.HandleFunc("/api/", reverseProxyHandler(monolithURL))
+    // Health check
+    http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(map[string]bool{"status": true})
+    })
 
-    log.Printf("Proxy запущен на :%s, миграция фильмов: %d%%", port, migrationPercent)
+    // Прокси для /api/movies — Strangler Fig
+    http.HandleFunc("/api/movies", func(w http.ResponseWriter, r *http.Request) {
+        if shouldRouteToMoviesService() {
+            proxy := httputil.NewSingleHostReverseProxy(moviesServiceTarget)
+            log.Printf("[PROXY] /api/movies → movies-service (%s)", moviesServiceTarget)
+            proxy.ServeHTTP(w, r)
+        } else {
+            proxy := httputil.NewSingleHostReverseProxy(monolithTarget)
+            log.Printf("[PROXY] /api/movies → monolith (%s)", monolithTarget)
+            proxy.ServeHTTP(w, r)
+        }
+    })
+
+    // Все остальные /api/* → монолит
+    http.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
+        proxy := httputil.NewSingleHostReverseProxy(monolithTarget)
+        log.Printf("[PROXY] %s → monolith", r.URL.Path)
+        proxy.ServeHTTP(w, r)
+    })
+
+    log.Printf("✅ Proxy запущен на :%s", port)
+    log.Printf("➡️  Миграция /api/movies: %d%% в movies-service", migrationPercent)
     log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
-func moviesHandler(w http.ResponseWriter, r *http.Request) {
-    // Решаем: куда направить — в монолит или в movies-сервис?
-    if shouldRouteToMoviesService() {
-        proxy := httputil.NewSingleHostReverseProxy(moviesServiceURL)
-        log.Printf("Проксируем /api/movies -> movies-service (%s)", moviesServiceURL)
-        proxy.ServeHTTP(w, r)
-    } else {
-        proxy := httputil.NewSingleHostReverseProxy(monolithURL)
-        log.Printf("Проксируем /api/movies -> монолит (%s)", monolithURL)
-        proxy.ServeHTTP(w, r)
-    }
-}
-
-func reverseProxyHandler(target *url.URL) http.HandlerFunc {
-    proxy := httputil.NewSingleHostReverseProxy(target)
-    return func(w http.ResponseWriter, r *http.Request) {
-        log.Printf("Прокси: %s -> %s", r.URL.Path, target)
-        proxy.ServeHTTP(w, r)
-    }
-}
-
-// shouldRouteToMoviesService — решает, направить ли запрос в новый сервис
 func shouldRouteToMoviesService() bool {
     return rand.Intn(100) < migrationPercent
 }
