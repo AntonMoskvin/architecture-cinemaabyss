@@ -77,7 +77,9 @@ func makeEventHandler(topic string) http.HandlerFunc {
             return
         }
 
-        w.WriteHeader(http.StatusAccepted)
+        w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(http.StatusCreated)
+        json.NewEncoder(w).Encode(map[string]string{"status": "success"})
     }
 }
 

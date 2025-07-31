@@ -83,11 +83,11 @@ services:
       - cinemaabyss-network
 
   # Events Microservice
-  events:
+  events-service:
     build:
       context: ./src/microservices/events
       dockerfile: Dockerfile
-    container_name: cinemaabyss-events
+    container_name: cinemaabyss-events-service
     depends_on:
       - postgres
       - kafka
@@ -100,15 +100,15 @@ services:
       - cinemaabyss-network
 
   # Proxy Service (API Gateway)
-  proxy:
+  proxy-service:
     build:
       context: ./src/microservices/proxy
       dockerfile: Dockerfile
-    container_name: cinemaabyss-proxy
+    container_name: cinemaabyss-proxy-service
     depends_on:
       - monolith
       - movies-service
-      - events
+      - events-service
     ports:
       - "8000:8000"
     environment:
