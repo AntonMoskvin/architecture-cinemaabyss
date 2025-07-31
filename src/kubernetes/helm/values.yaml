@@ -5,7 +5,8 @@ global:
 
 # Image pull secrets
 imagePullSecrets:
-  dockerconfigjson: ewoJImF1dGhzIjogewoJCSJnaGNyLmlvIjogewoJCQkiYXV0aCI6
+  dockerconfigjson: ewogICJhdXRocyI6IHsKICAgICAgICAgICAgICAgICJnaGNyLmlvIjogewogICAgICAgICAgICAgICAgICAgICAgICAiYXV0aCI6ICJRVzUwYjI1TmIzTnJkbWx1T21kcGRHaDFZbDl3WVhSZk1URkJUak5DTjBoSk1GUjNRekpQV2toM1JWSlZSVjlwZVVNMVJqaHRVWFJUUmtaQlJEbE5kamxIV2pNek1uRk1jMWw2VWxKV1NXODBSMnBSUTNCTWIyNDBNMUJFUnpNMlRFVmljVGRRYlZOWGN3PT0iCiAgICAgICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIH0sCiAgImN1cnJlbnRDb250ZXh0IjogImRlc2t0b3AtbGludXgiLAogICJwbHVnaW5zIjogewogICAgIi14LWNsaS1oaW50cyI6IHsKICAgICAgImVuYWJsZWQiOiAidHJ1ZSIKICAgIH0sCiAgICAiZGVidWciOiB7CiAgICAgICJob29rcyI6ICJleGVjIgogICAgfSwKICAgICJzY291dCI6IHsKICAgICAgImhvb2tzIjogInB1bGwsYnVpbGR4IGJ1aWxkIgogICAgfQogIH0sCiAgImZlYXR1cmVzIjogewogICAgImhvb2tzIjogInRydWUiCiAgfQp9
+type: kubernetes.io/dockerconfigjson
 # Database configuration
 database:
   host: postgres
@@ -33,7 +34,7 @@ database:
 monolith:
   enabled: true
   image:
-    repository: ghcr.io/db-exp/cinemaabysstest/monolith
+    repository: ghcr.io/antonmoskvin/architecture-cinemaabyss/monolith
     tag: latest
     pullPolicy: Always
   replicas: 1
@@ -53,17 +54,18 @@ monolith:
 proxyService:
   enabled: true
   image:
-    repository: ghcr.io/db-exp/cinemaabysstest/proxy-service
+    repository: ghcr.io/antonmoskvin/architecture-cinemaabyss/proxy-service
     tag: latest
     pullPolicy: Always
   replicas: 1
+  moviesMigrationPercent: "50"
   resources:
     limits:
-      cpu: 300m
-      memory: 256Mi
+      cpu: "300m"
+      memory: "256Mi"
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: "100m"
+      memory: "128Mi"
   service:
     port: 80
     targetPort: 8000
@@ -73,7 +75,7 @@ proxyService:
 moviesService:
   enabled: true
   image:
-    repository: ghcr.io/db-exp/cinemaabysstest/movies-service
+    repository: ghcr.io/antonmoskvin/architecture-cinemaabyss/movies-service
     tag: latest
     pullPolicy: Always
   replicas: 1
@@ -93,7 +95,7 @@ moviesService:
 eventsService:
   enabled: true
   image:
-    repository: ghcr.io/db-exp/cinemaabysstest/events-service
+    repository: ghcr.io/antonmoskvin/architecture-cinemaabyss/events-service
     tag: latest
     pullPolicy: Always
   replicas: 1
