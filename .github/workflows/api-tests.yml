@@ -2,9 +2,9 @@ name: API Tests
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, cinema]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, cinema ]
   workflow_dispatch:
     inputs:
       environment:
@@ -49,7 +49,7 @@ jobs:
       
       - name: Install Newman and dependencies
         working-directory: tests/postman
-        run: npm install
+        run: npm install --legacy-peer-deps
       
       - name: Run API tests
         working-directory: tests/postman
