@@ -1,4 +1,3 @@
-// microservices/proxy/main.go
 package main
 
 import (
